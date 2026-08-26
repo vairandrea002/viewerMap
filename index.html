@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizzatore Mappa con GPS e DXF (EPSG:3003)</title>
+    <title>Rete Aerea Tranviaria di Torino — Visualizzatore GPS &amp; DXF</title>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
+
     <!-- Leaflet Locate Control CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css" />
 
@@ -20,22 +20,21 @@
             background-color: #f8f9fa;
         }
         #header {
-            height: 60px;
+            min-height: 60px;
             background-color: #2c3e50;
             color: white;
             display: flex;
             align-items: center;
-            padding: 0 15px;
+            padding: 8px 15px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             z-index: 1000;
             position: relative;
-            gap: 10px;
+            gap: 12px;
             flex-wrap: wrap;
         }
         #header h1 {
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             margin: 0;
-            flex-grow: 1;
             white-space: nowrap;
         }
         .search-wrapper {
@@ -43,24 +42,35 @@
             display: flex;
             align-items: center;
         }
-        #search-input {
+        .search-wrapper label {
+            display: none;
+        }
+        .search-wrapper input[type="text"] {
             padding: 7px 12px;
             border-radius: 4px;
             border: 1px solid #ccc;
             font-size: 0.85rem;
-            width: 200px;
+            width: 190px;
             outline: none;
         }
-        #search-results {
+        .search-wrapper input[type="text"]:focus {
+            border-color: #3498db;
+        }
+        .search-wrapper input[type="text"]:disabled {
+            background-color: #eee;
+            cursor: not-allowed;
+        }
+        .search-results {
             position: absolute;
             top: 40px;
             left: 0;
             right: 0;
+            min-width: 260px;
             background: white;
             color: #333;
             border-radius: 4px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            max-height: 250px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            max-height: 280px;
             overflow-y: auto;
             z-index: 2000;
             display: none;
@@ -71,37 +81,18 @@
             border-bottom: 1px solid #eee;
             font-size: 0.85rem;
         }
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
         .search-result-item:hover {
             background-color: #3498db;
             color: white;
         }
-        .file-upload-wrapper {
-            position: relative;
-            overflow: hidden;
-            display: inline-block;
+        .search-result-item small {
+            color: #777;
         }
-        .file-upload-wrapper input[type=file] {
-            font-size: 100px;
-            position: absolute;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            cursor: pointer;
-        }
-        .btn {
-            border: none;
-            background-color: #3498db;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-        .btn:hover {
-            background-color: #2980b9;
+        .search-result-item:hover small {
+            color: #eaf4fc;
         }
         #map {
             height: calc(100vh - 60px);
@@ -109,158 +100,203 @@
             z-index: 1;
         }
         #status {
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             color: #ecf0f1;
             white-space: nowrap;
+            margin-left: auto;
         }
-        /* Stile personalizzato per i testi estratti dal DXF */
+
+        /* Stile testi del layer "Divisori": magenta, in rilievo, ben visibili */
         .dxf-text-label {
-            color: #000;
-            font-weight: bold;
-            font-size: 12px;
+            font-weight: 800;
+            font-size: 13px;
+            letter-spacing: 0.2px;
             white-space: nowrap;
-            text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 0px 1px 0 #fff, 0px -1px 0 #fff, 1px 0px 0 #fff, -1px 0px 0 #fff;
             pointer-events: auto;
             cursor: pointer;
         }
-        /* Evidenziazione testo selezionato */
-        .dxf-text-label-highlight {
+        .dxf-text-label span {
+            display: inline-block;
+        }
+        /* Effetto "in rilievo": alone bianco per leggibilità + ombra per dare profondità */
+        .dxf-text-label .label-text {
+            color: #ff00ff;
+            text-shadow:
+                1px 1px 0 #fff,
+                -1px -1px 0 #fff,
+                1px -1px 0 #fff,
+                -1px 1px 0 #fff,
+                0px 1px 0 #fff,
+                0px -1px 0 #fff,
+                1px 0px 0 #fff,
+                -1px 0px 0 #fff,
+                2px 2px 2px rgba(0,0,0,0.45);
+        }
+        /* Evidenziazione testo selezionato dalla ricerca */
+        .dxf-text-label-highlight .label-text {
             color: #e74c3c !important;
-            font-size: 16px !important;
+            font-size: 17px !important;
+            text-shadow:
+                1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff,
+                0 0 6px #ffff00, 0 0 10px #ffff00 !important;
+        }
+        .dxf-text-label-highlight {
             z-index: 1000 !important;
-            text-shadow: 2px 2px 0 #ffff00, -2px -2px 0 #ffff00, 2px -2px 0 #ffff00, -2px 2px 0 #ffff00 !important;
+        }
+
+        .leaflet-popup-content b {
+            color: #2c3e50;
         }
     </style>
 </head>
 <body>
 
     <div id="header">
-        <h1>GPS & DXF (EPSG:3003)</h1>
-        
-        <!-- Campo Ricerca Testo -->
+        <h1>🚊 Rete Aerea Tranviaria — Torino</h1>
+
+        <!-- Ricerca toponomastica (indirizzi, vie, luoghi) -->
         <div class="search-wrapper">
-            <input type="text" id="search-input" placeholder="Cerca testo nel DXF..." disabled />
-            <div id="search-results"></div>
+            <label for="address-search-input">Ricerca indirizzo</label>
+            <input type="text" id="address-search-input" placeholder="🔎 Cerca indirizzo, via, luogo..." autocomplete="off" />
+            <div id="address-search-results" class="search-results"></div>
         </div>
 
-        <span id="status"> Caricamento in corso...</span>
-        <div class="file-upload-wrapper">
-            <button class="btn">Carica DXF</button>
-            <input type="file" id="dxf-input" accept=".dxf" />
+        <!-- Ricerca testi nel DXF -->
+        <div class="search-wrapper">
+            <label for="dxf-search-input">Ricerca testo DXF</label>
+            <input type="text" id="dxf-search-input" placeholder="🔧 Cerca testo/zona nel DXF..." autocomplete="off" disabled />
+            <div id="dxf-search-results" class="search-results"></div>
         </div>
+
+        <span id="status">Caricamento in corso...</span>
     </div>
 
     <div id="map"></div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
+
     <!-- Leaflet Locate Control JS -->
     <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
-    
-    <!-- Proj4JS for EPSG transformation -->
+
+    <!-- Proj4JS per la trasformazione EPSG:3003 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
-    
+
     <!-- Dxf Parser -->
     <script src="https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/dist/dxf-parser.js"></script>
 
     <script>
-        // Inizializzazione della mappa
-        const map = L.map('map').setView([43.7695, 11.2558], 6); // Centro approssimativo sull'Italia (Firenze)
+        // ============================================================
+        // INIZIALIZZAZIONE MAPPA (overlay su OpenStreetMap)
+        // ============================================================
+        const map = L.map('map').setView([45.0703, 7.6869], 13); // Centro su Torino
 
-        // Livello Base: OpenStreetMap
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
+        // Gruppo che conterrà la rete aerea tranviaria (overlay attivabile/disattivabile)
+        const dxfLayerGroup = L.layerGroup().addTo(map);
+
         // Controllo GPS (Localizzazione)
         L.control.locate({
             position: 'topleft',
-            strings: {
-                title: "Mostra la mia posizione"
-            },
-            locateOptions: {
-                enableHighAccuracy: true
-            }
+            strings: { title: "Mostra la mia posizione" },
+            locateOptions: { enableHighAccuracy: true }
         }).addTo(map);
 
         // Definizione Proiezione EPSG:3003 (Monte Mario / Italy zone 1)
         proj4.defs("EPSG:3003", "+proj=tmerc +lat_0=0 +lon_0=9 +k=0.9996 +x_0=1500000 +y_0=0 +ellps=intl +towgs84=-104.1,-49.1,-9.9,0.971,-2.917,0.714,-11.68 +units=m +no_defs");
 
-        let currentDxfLayer = null;
-        let dxfTextItems = []; // Archivio dei testi caricate per la ricerca
+        let dxfTextItems = [];       // Archivio dei testi caricati, per la ricerca
         let activeHighlightMarker = null;
+        let addressMarker = null;    // Marker per la ricerca toponomastica
 
-        const searchInput = document.getElementById('search-input');
-        const searchResults = document.getElementById('search-results');
-
-        // Nome/percorso del file DXF: si trova nella stessa cartella di questo index.html
+        // ============================================================
+        // CARICAMENTO AUTOMATICO DEL DXF (nessun upload manuale)
+        // ============================================================
         const DXF_FILE_PATH = 'ReteAerea.dxf';
+        const statusEl = document.getElementById('status');
 
-        // Caricamento automatico del DXF già presente nella repository
         function loadDxfFromServer(path) {
-            document.getElementById('status').innerText = "Caricamento in corso...";
+            statusEl.innerText = "Caricamento rete aerea in corso...";
             fetch(path)
                 .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     return response.text();
                 })
                 .then(dxfContent => {
                     const parser = new window.DxfParser();
                     const dxfData = parser.parseSync(dxfContent);
                     renderDxf(dxfData);
-                    document.getElementById('status').innerText = `Caricato: ${path}`;
+                    statusEl.innerText = `Rete aerea caricata (${dxfTextItems.length} etichette)`;
                 })
                 .catch(err => {
                     console.error(err);
-                    document.getElementById('status').innerText = "Errore caricamento automatico.";
-                    alert(`Impossibile caricare automaticamente "${path}". Verifica che il file sia presente nella stessa cartella di index.html. Puoi comunque caricarlo manualmente con il pulsante "Carica DXF".`);
+                    statusEl.innerText = "Errore nel caricamento del DXF.";
+                    alert(`Impossibile caricare "${path}". Verifica che il file sia presente nella stessa cartella di index.html nel repository.`);
                 });
         }
-
-        // Gestione caricamento manuale DXF (fallback/opzionale)
-        document.getElementById('dxf-input').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            document.getElementById('status').innerText = "Caricamento in corso...";
-
-            reader.onload = function(event) {
-                const dxfContent = event.target.result;
-                try {
-                    const parser = new window.DxfParser();
-                    const dxfData = parser.parseSync(dxfContent);
-                    renderDxf(dxfData);
-                    document.getElementById('status').innerText = `Caricato: ${file.name}`;
-                } catch (err) {
-                    console.error(err);
-                    alert("Errore durante il parsing del file DXF. Assicurati che sia un formato valido.");
-                    document.getElementById('status').innerText = "Errore di caricamento.";
-                }
-            };
-            reader.readAsText(file);
-        });
-
-        // Avvia il caricamento automatico all'apertura della pagina
         loadDxfFromServer(DXF_FILE_PATH);
 
-        // Rendering del DXF sulla mappa
-        function renderDxf(dxf) {
-            if (currentDxfLayer) {
-                map.removeLayer(currentDxfLayer);
-            }
-            dxfTextItems = []; // Reset della lista testi
-            searchInput.value = '';
-            searchResults.style.display = 'none';
+        // ============================================================
+        // UTILITY: colore e stile linea a partire dai dati DXF reali
+        // ============================================================
 
-            const geojson = {
-                type: 'FeatureCollection',
-                features: []
-            };
+        // Converte un colore "truecolor" decimale (fornito da dxf-parser) in stringa esadecimale
+        function colorIntToHex(v) {
+            if (typeof v !== 'number' || isNaN(v) || v < 0) return null;
+            return '#' + ('000000' + v.toString(16)).slice(-6);
+        }
+
+        // Fattore di scala (in pixel) per convertire le lunghezze reali del pattern
+        // del tipo di linea DXF in un dashArray leggibile sulla mappa web.
+        const DASH_SCALE = 1.6;
+        const MIN_DASH_PX = 3;
+
+        function buildStyleResolvers(dxf) {
+            const layers = (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) || {};
+            const lineTypes = (dxf.tables && dxf.tables.lineType && dxf.tables.lineType.lineTypes) || {};
+
+            function resolveColor(entity) {
+                const own = colorIntToHex(entity.color);
+                if (own) return own;
+                const layerDef = layers[entity.layer];
+                if (layerDef) {
+                    const layerColor = colorIntToHex(layerDef.color);
+                    if (layerColor) return layerColor;
+                }
+                return '#3388ff'; // fallback (default Leaflet) se non risolvibile
+            }
+
+            function resolveDashArray(entity) {
+                let ltName = entity.lineType;
+                if (!ltName || /^by ?layer$/i.test(ltName)) {
+                    const layerDef = layers[entity.layer];
+                    ltName = (layerDef && layerDef.lineType) || 'Continuous';
+                }
+                const lt = lineTypes[ltName];
+                if (!lt || !lt.pattern || lt.pattern.length <= 1) return null; // linea continua
+                const segments = lt.pattern.map(v => Math.max(MIN_DASH_PX, Math.round(Math.abs(v) * DASH_SCALE)));
+                return segments.join(',');
+            }
+
+            return { resolveColor, resolveDashArray };
+        }
+
+        // ============================================================
+        // RENDERING DEL DXF SULLA MAPPA
+        // ============================================================
+        function renderDxf(dxf) {
+            dxfLayerGroup.clearLayers();
+            dxfTextItems = [];
+            dxfSearchInput.value = '';
+            dxfSearchResults.style.display = 'none';
+
+            const { resolveColor, resolveDashArray } = buildStyleResolvers(dxf);
+
+            const geojson = { type: 'FeatureCollection', features: [] };
 
             if (dxf.entities && dxf.entities.length > 0) {
                 dxf.entities.forEach(entity => {
@@ -280,21 +316,29 @@
                                 geojson.features.push({
                                     type: 'Feature',
                                     geometry: { type: 'LineString', coordinates: [p1, p2] },
-                                    properties: { layer: entity.layer }
+                                    properties: {
+                                        layer: entity.layer,
+                                        color: resolveColor(entity),
+                                        dash: resolveDashArray(entity)
+                                    }
                                 });
                             }
                         } else if (entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE') {
                             if (entity.vertices && entity.vertices.length > 0) {
                                 let coords = entity.vertices.map(v => proj4("EPSG:3003", "EPSG:4326", [v.x, v.y]));
                                 if (entity.shape || (coords[0][0] === coords[coords.length-1][0] && coords[0][1] === coords[coords.length-1][1])) {
-                                    if(coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1]){
+                                    if (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1]) {
                                         coords.push(coords[0]);
                                     }
                                 }
                                 geojson.features.push({
                                     type: 'Feature',
                                     geometry: { type: 'LineString', coordinates: coords },
-                                    properties: { layer: entity.layer }
+                                    properties: {
+                                        layer: entity.layer,
+                                        color: resolveColor(entity),
+                                        dash: resolveDashArray(entity)
+                                    }
                                 });
                             }
                         } else if (entity.type === 'POINT') {
@@ -302,7 +346,7 @@
                             geojson.features.push({
                                 type: 'Feature',
                                 geometry: { type: 'Point', coordinates: p },
-                                properties: { layer: entity.layer }
+                                properties: { layer: entity.layer, color: resolveColor(entity) }
                             });
                         } else if (entity.type === 'CIRCLE' || entity.type === 'ARC') {
                             if (entity.center) {
@@ -310,23 +354,23 @@
                                 geojson.features.push({
                                     type: 'Feature',
                                     geometry: { type: 'Point', coordinates: p },
-                                    properties: { layer: entity.layer, note: 'Centro Cerchio/Arco' }
+                                    properties: { layer: entity.layer, note: 'Centro Cerchio/Arco', color: resolveColor(entity) }
                                 });
                             }
                         } else if (entity.type === 'TEXT' || entity.type === 'MTEXT') {
                             const pt = entity.startPoint || entity.position;
                             if (pt && entity.text) {
                                 const p = proj4("EPSG:3003", "EPSG:4326", [pt.x, pt.y]);
-                                // Inclinazione originale del testo nel DXF (in gradi, antioraria, asse Y verso l'alto)
                                 const rotationDeg = entity.rotation || 0;
                                 geojson.features.push({
                                     type: 'Feature',
                                     geometry: { type: 'Point', coordinates: p },
-                                    properties: { 
-                                        layer: entity.layer, 
-                                        isText: true, 
+                                    properties: {
+                                        layer: entity.layer,
+                                        isText: true,
                                         text: entity.text.trim(),
-                                        rotation: rotationDeg
+                                        rotation: rotationDeg,
+                                        color: resolveColor(entity)
                                     }
                                 });
                             }
@@ -342,10 +386,15 @@
                 return;
             }
 
-            // Aggiunge i dati alla mappa
-            currentDxfLayer = L.geoJSON(geojson, {
+            const dxfGeoLayer = L.geoJSON(geojson, {
+                // Colore e tratteggio delle polilinee: fedeli al file DXF originale
                 style: function (feature) {
-                    return {color: "#e74c3c", weight: 2, opacity: 0.9};
+                    return {
+                        color: feature.properties.color,
+                        weight: 2.4,
+                        opacity: 0.95,
+                        dashArray: feature.properties.dash || null
+                    };
                 },
                 pointToLayer: function (feature, latlng) {
                     if (feature.properties && feature.properties.isText) {
@@ -353,17 +402,17 @@
                         // sullo schermo l'asse Y cresce verso il basso, quindi invertiamo il segno.
                         const rotationDeg = feature.properties.rotation || 0;
                         const screenRotationDeg = -rotationDeg;
+                        const color = feature.properties.color || '#ff00ff';
 
                         const marker = L.marker(latlng, {
                             icon: L.divIcon({
                                 className: 'dxf-text-label',
-                                html: `<span style="display:inline-block; transform: rotate(${screenRotationDeg}deg); transform-origin: left center;">${feature.properties.text}</span>`,
+                                html: `<span style="display:inline-block; transform: rotate(${screenRotationDeg}deg); transform-origin: left center;"><span class="label-text" style="color:${color}; text-shadow-color:${color};">${feature.properties.text}</span></span>`,
                                 iconSize: null,
                                 iconAnchor: [0, 0]
                             })
                         });
 
-                        // Salviamo l'elemento nell'elenco di ricerca
                         dxfTextItems.push({
                             text: feature.properties.text,
                             layer: feature.properties.layer,
@@ -371,87 +420,180 @@
                             marker: marker
                         });
 
-                        // Cliccando sul testo in mappa si apre un popup con i dettagli
                         marker.bindPopup(`<b>Testo:</b> ${feature.properties.text}<br><b>Layer:</b> ${feature.properties.layer}`);
-
                         return marker;
                     }
-                    
+
+                    const color = feature.properties.color || '#e74c3c';
                     return L.circleMarker(latlng, {
                         radius: 4,
-                        fillColor: "#e74c3c",
-                        color: "#c0392b",
+                        fillColor: color,
+                        color: color,
                         weight: 1,
                         opacity: 1,
                         fillOpacity: 0.8
                     });
                 }
-            }).addTo(map);
+            });
 
-            // Abilita la barra di ricerca se sono stati trovati dei testi
+            dxfGeoLayer.addTo(dxfLayerGroup);
+
+            // Abilita la barra di ricerca testi DXF
             if (dxfTextItems.length > 0) {
-                searchInput.disabled = false;
-                searchInput.placeholder = `Cerca tra ${dxfTextItems.length} testi...`;
+                dxfSearchInput.disabled = false;
+                dxfSearchInput.placeholder = `🔧 Cerca tra ${dxfTextItems.length} testi DXF...`;
             } else {
-                searchInput.disabled = true;
-                searchInput.placeholder = "Nessun testo trovato nel DXF";
+                dxfSearchInput.disabled = true;
+                dxfSearchInput.placeholder = "Nessun testo trovato nel DXF";
+            }
+
+            // Aggiunge il controllo layer (OSM + Rete aerea) solo una volta
+            if (!window.__layerControlAdded) {
+                L.control.layers(
+                    { "OpenStreetMap": osmLayer },
+                    { "Rete Aerea Tranviaria (DXF)": dxfLayerGroup },
+                    { collapsed: true, position: 'topright' }
+                ).addTo(map);
+                window.__layerControlAdded = true;
             }
 
             // Centra la mappa sulle geometrie caricate
-            map.fitBounds(currentDxfLayer.getBounds());
+            map.fitBounds(dxfGeoLayer.getBounds());
         }
 
-        // Funzionalità di ricerca testo
-        searchInput.addEventListener('input', function() {
+        // ============================================================
+        // RICERCA TOPONOMASTICA (indirizzi, vie, luoghi) via Nominatim/OSM
+        // ============================================================
+        const addressSearchInput = document.getElementById('address-search-input');
+        const addressSearchResults = document.getElementById('address-search-results');
+        let addressSearchTimeout = null;
+        let addressSearchAbortController = null;
+
+        addressSearchInput.addEventListener('input', function () {
+            const query = this.value.trim();
+            clearTimeout(addressSearchTimeout);
+
+            if (query.length < 3) {
+                addressSearchResults.style.display = 'none';
+                addressSearchResults.innerHTML = '';
+                return;
+            }
+
+            // Debounce per rispettare le policy di utilizzo di Nominatim
+            addressSearchTimeout = setTimeout(() => {
+                searchAddress(query);
+            }, 450);
+        });
+
+        function searchAddress(query) {
+            if (addressSearchAbortController) addressSearchAbortController.abort();
+            addressSearchAbortController = new AbortController();
+
+            addressSearchResults.innerHTML = '<div class="search-result-item">Ricerca in corso...</div>';
+            addressSearchResults.style.display = 'block';
+
+            // Ricerca con priorità sull'area di Torino (viewbox), senza escludere il resto d'Italia
+            const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8` +
+                `&viewbox=7.55,45.15,7.75,45.00&bounded=0&countrycodes=it&q=${encodeURIComponent(query)}`;
+
+            fetch(url, { signal: addressSearchAbortController.signal, headers: { 'Accept-Language': 'it' } })
+                .then(r => r.json())
+                .then(results => {
+                    addressSearchResults.innerHTML = '';
+                    if (!results || results.length === 0) {
+                        addressSearchResults.innerHTML = '<div class="search-result-item">Nessun risultato trovato</div>';
+                        return;
+                    }
+                    results.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'search-result-item';
+                        div.innerHTML = `<strong>${item.display_name.split(',')[0]}</strong><br><small>${item.display_name}</small>`;
+                        div.addEventListener('click', function () {
+                            zoomToAddress(item);
+                            addressSearchResults.style.display = 'none';
+                        });
+                        addressSearchResults.appendChild(div);
+                    });
+                    addressSearchResults.style.display = 'block';
+                })
+                .catch(err => {
+                    if (err.name === 'AbortError') return;
+                    console.error(err);
+                    addressSearchResults.innerHTML = '<div class="search-result-item">Errore nella ricerca</div>';
+                });
+        }
+
+        function zoomToAddress(item) {
+            const lat = parseFloat(item.lat);
+            const lon = parseFloat(item.lon);
+
+            if (addressMarker) map.removeLayer(addressMarker);
+            addressMarker = L.marker([lat, lon]).addTo(map);
+            addressMarker.bindPopup(`<b>${item.display_name}</b>`).openPopup();
+
+            map.flyTo([lat, lon], 17, { duration: 1.2 });
+        }
+
+        // Nascondi risultati toponomastici cliccando altrove
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#address-search-input') && !e.target.closest('#address-search-results')) {
+                addressSearchResults.style.display = 'none';
+            }
+        });
+
+        // ============================================================
+        // RICERCA TESTI NEL DXF (etichette Divisori / Zone)
+        // ============================================================
+        const dxfSearchInput = document.getElementById('dxf-search-input');
+        const dxfSearchResults = document.getElementById('dxf-search-results');
+
+        dxfSearchInput.addEventListener('input', function () {
             const query = this.value.toLowerCase().trim();
-            searchResults.innerHTML = '';
+            dxfSearchResults.innerHTML = '';
 
             if (query.length === 0) {
-                searchResults.style.display = 'none';
+                dxfSearchResults.style.display = 'none';
                 return;
             }
 
             const filtered = dxfTextItems.filter(item => item.text.toLowerCase().includes(query));
 
             if (filtered.length === 0) {
-                searchResults.innerHTML = '<div class="search-result-item">Nessun risultato trovato</div>';
+                dxfSearchResults.innerHTML = '<div class="search-result-item">Nessun risultato trovato</div>';
             } else {
-                filtered.slice(0, 50).forEach(item => { // Limite di 50 risultati visibili nel menu
+                filtered.slice(0, 50).forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'search-result-item';
-                    div.innerHTML = `<strong>${item.text}</strong> <small style="color:#777;">(Layer: ${item.layer})</small>`;
-                    div.addEventListener('click', function() {
+                    div.innerHTML = `<strong>${item.text}</strong> <small>(Layer: ${item.layer})</small>`;
+                    div.addEventListener('click', function () {
                         zoomToText(item);
-                        searchResults.style.display = 'none';
+                        dxfSearchResults.style.display = 'none';
                     });
-                    searchResults.appendChild(div);
+                    dxfSearchResults.appendChild(div);
                 });
             }
 
-            searchResults.style.display = 'block';
+            dxfSearchResults.style.display = 'block';
         });
 
-        // Nascondi lista risultati cliccando altrove
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.search-wrapper')) {
-                searchResults.style.display = 'none';
+        // Nascondi lista risultati DXF cliccando altrove
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#dxf-search-input') && !e.target.closest('#dxf-search-results')) {
+                dxfSearchResults.style.display = 'none';
             }
         });
 
         // Funzione per volare sul testo cercato ed evidenziarlo
         function zoomToText(item) {
             map.flyTo(item.latlng, 18, { duration: 1.2 });
-            
-            // Apri popup del marker
             item.marker.openPopup();
 
-            // Effetto visivo di evidenziazione temporanea sul testo
             const iconElem = item.marker.getElement();
             if (iconElem) {
                 iconElem.classList.add('dxf-text-label-highlight');
                 setTimeout(() => {
                     iconElem.classList.remove('dxf-text-label-highlight');
-                }, 3000); // Rimuove l'evidenziazione dopo 3 secondi
+                }, 3000);
             }
         }
     </script>
