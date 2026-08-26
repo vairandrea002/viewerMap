@@ -27,9 +27,7 @@
             overflow: hidden;
         }
 
-        /* --------------------------------------------------
-           HEADER E RICERCA RESPONSIVA
-        -------------------------------------------------- */
+        /* HEADER E RICERCA RESPONSIVA */
         #header {
             flex: 0 0 auto;
             background-color: #2c3e50;
@@ -116,18 +114,14 @@
             flex: 0 0 auto;
         }
 
-        /* --------------------------------------------------
-           MAPPA
-        -------------------------------------------------- */
+        /* MAPPA */
         #map {
             flex: 1 1 auto;
             width: 100%;
             z-index: 1;
         }
 
-        /* --------------------------------------------------
-           STILE TESTI E ETICHETTE DIVISORI
-        -------------------------------------------------- */
+        /* STILE ETICHETTE PUNTUALI DXF */
         .dxf-text-label {
             font-weight: 800;
             font-size: 12px;
@@ -163,9 +157,7 @@
             z-index: 1000 !important;
         }
 
-        /* --------------------------------------------------
-           LEGENDA SULLA MAPPA (Basso a destra)
-        -------------------------------------------------- */
+        /* LEGENDA SULLA MAPPA */
         .map-legend {
             background: rgba(255, 255, 255, 0.88);
             backdrop-filter: blur(4px);
@@ -202,9 +194,6 @@
             background-color: #e74c3c;
         }
 
-        /* --------------------------------------------------
-           ADATTAMENTO PER DISPOSITIVI MOBILI (< 600px)
-        -------------------------------------------------- */
         @media (max-width: 600px) {
             #header {
                 padding: 6px 8px;
@@ -227,14 +216,6 @@
                 text-align: right;
                 font-size: 0.7rem;
             }
-            .map-legend {
-                padding: 6px 10px;
-                font-size: 0.72rem;
-            }
-            .legend-line {
-                width: 20px;
-                height: 3px;
-            }
         }
     </style>
 </head>
@@ -243,14 +224,12 @@
     <div id="header">
         <h1>🚊 Rete Aerea Tranviaria — Torino</h1>
 
-        <!-- Ricerca toponomastica -->
         <div class="search-wrapper">
             <label for="address-search-input">Ricerca indirizzo</label>
             <input type="text" id="address-search-input" placeholder="🔎 Indirizzo / via..." autocomplete="off" />
             <div id="address-search-results" class="search-results"></div>
         </div>
 
-        <!-- Ricerca testi nel DXF -->
         <div class="search-wrapper">
             <label for="dxf-search-input">Ricerca testo DXF</label>
             <input type="text" id="dxf-search-input" placeholder="🔧 Testo DXF..." autocomplete="off" disabled />
@@ -266,7 +245,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- Leaflet Locate Control JS -->
-    <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
 
     <!-- Proj4JS per la trasformazione EPSG:3003 -->
@@ -275,34 +253,32 @@
     <!-- Dxf Parser -->
     <script src="https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/dist/dxf-parser.js"></script>
 
+    <!-- Leaflet TextPath Plugin (Renderizza il testo lungo le polilinee) -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-textpath@1.2.3/leaflet.textpath.min.js"></script>
+
     <script>
-        // ============================================================
-        // 1. INIZIALIZZAZIONE MAPPA E RENDERER CANVAS (Per touch preciso su mobile)
-        // ============================================================
-        const canvasRenderer = L.canvas({ tolerance: 10 });
+        // 1. INIZIALIZZAZIONE MAPPA E RENDERER SVG (Necessario per TextPath)
+        const svgRenderer = L.svg({ padding: 0.5 });
 
         const map = L.map('map', {
-            renderer: canvasRenderer,
+            renderer: svgRenderer,
             zoomSnap: 0.5
-        }).setView([45.0703, 7.6869], 13); // Centro su Torino
+        }).setView([45.0703, 7.6869], 13);
 
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // GRUPPI LAYER SEPARATI
-        const reteAereaGroup = L.layerGroup().addTo(map); // Layer Rete Aerea
-        const divisoriGroup = L.layerGroup().addTo(map);  // Layer Divisori ed Etichette
+        const reteAereaGroup = L.layerGroup().addTo(map);
+        const divisoriGroup = L.layerGroup().addTo(map);
 
-        // Controllo GPS
         L.control.locate({
             position: 'topleft',
             strings: { title: "Mostra la mia posizione" },
             locateOptions: { enableHighAccuracy: true }
         }).addTo(map);
 
-        // Controllo Layer (Gestione Visibilità)
         L.control.layers(
             { "OpenStreetMap": osmLayer },
             { 
@@ -312,40 +288,88 @@
             { collapsed: true, position: 'topright' }
         ).addTo(map);
 
-        // ============================================================
-        // 2. LEGENDA IN BASSO A DESTRA (Punto 9)
-        // ============================================================
+        // LEGENDA
         const legendControl = L.control({ position: 'bottomright' });
         legendControl.onAdd = function () {
             const div = L.DomUtil.create('div', 'map-legend');
             div.innerHTML = `
                 <div class="map-legend-title">Legenda Stato Rete</div>
-                <div class="legend-item">
-                    <span class="legend-line alimentata"></span>
-                    <span>Alimentata</span>
-                </div>
-                <div class="legend-item">
-                    <span class="legend-line disalimentata"></span>
-                    <span>Disalimentata</span>
-                </div>
+                <div class="legend-item"><span class="legend-line alimentata"></span><span>Alimentata</span></div>
+                <div class="legend-item"><span class="legend-line disalimentata"></span><span>Disalimentata</span></div>
             `;
             return div;
         };
         legendControl.addTo(map);
 
-        // Definizione Proiezione EPSG:3003
         proj4.defs("EPSG:3003", "+proj=tmerc +lat_0=0 +lon_0=9 +k=0.9996 +x_0=1500000 +y_0=0 +ellps=intl +towgs84=-104.1,-49.1,-9.9,0.971,-2.917,0.714,-11.68 +units=m +no_defs");
 
-        let dxfTextItems = [];          // Archivio etichette
-        let dxfPolylineLayers = [];     // Archivio polilinee per aggiornamento spessore dinamico
+        let dxfTextItems = [];
+        let dxfPolylineLayers = [];
+        let complexLinetypesMap = {};
         let addressMarker = null;
 
-        // ============================================================
-        // 3. CARICAMENTO E RENDERING DEL DXF
-        // ============================================================
         const DXF_FILE_PATH = 'ReteAerea.dxf';
         const statusEl = document.getElementById('status');
 
+        // ============================================================
+        // PARSER DELLE DEFINIZIONI DI TIPI DI LINEA COMPLESSI (LTYPE)
+        // Estrae il testo incorporato (es. "Zona 1") e i tratteggi
+        // ============================================================
+        function parseComplexLinetypesFromDXF(dxfText) {
+            const mapLtypes = {};
+            if (!dxfText) return mapLtypes;
+
+            const ltypeSectionMatch = dxfText.match(/0\s*\r?\nTABLE\s*\r?\n2\s*\r?\nLTYPE[\s\S]*?0\s*\r?\nENDTAB/i);
+            if (!ltypeSectionMatch) return mapLtypes;
+
+            const entries = ltypeSectionMatch[0].split(/(?=0\s*\r?\nLTYPE)/i);
+
+            entries.forEach(entry => {
+                const lines = entry.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                let ltName = null;
+                let embeddedText = null;
+                const patternDashes = [];
+
+                for (let i = 0; i < lines.length - 1; i += 2) {
+                    const code = parseInt(lines[i], 10);
+                    const val = lines[i + 1];
+
+                    if (code === 2 && !ltName) {
+                        ltName = val;
+                    } else if (code === 3 || code === 74) {
+                        const quoteMatch = val.match(/"([^"]+)"/);
+                        if (quoteMatch) {
+                            embeddedText = quoteMatch[1];
+                        } else if (code === 3 && ltName && val !== ltName && !val.toLowerCase().startsWith('testo')) {
+                            if (!embeddedText) embeddedText = val;
+                        }
+                    } else if (code === 49) {
+                        const num = parseFloat(val);
+                        if (!isNaN(num)) patternDashes.push(num);
+                    }
+                }
+
+                if (ltName) {
+                    let dashArrayStr = null;
+                    if (patternDashes.length > 0) {
+                        const scaledDashes = patternDashes.map(v => Math.max(3, Math.round(Math.abs(v) * 1.5)));
+                        if (scaledDashes.length > 1) {
+                            dashArrayStr = scaledDashes.join(',');
+                        }
+                    }
+
+                    mapLtypes[ltName] = {
+                        name: ltName,
+                        text: embeddedText,
+                        dashArray: dashArrayStr
+                    };
+                }
+            });
+
+            return mapLtypes;
+        }
+
+        // CARICAMENTO FILE DXF
         function loadDxfFromServer(path) {
             statusEl.innerText = "Caricamento rete aerea...";
             fetch(path)
@@ -354,6 +378,10 @@
                     return response.text();
                 })
                 .then(dxfContent => {
+                    // 1. Estrai tipi di linea complessi dal testo grezzo DXF
+                    complexLinetypesMap = parseComplexLinetypesFromDXF(dxfContent);
+
+                    // 2. Parsing completo con DxfParser
                     const parser = new window.DxfParser();
                     const dxfData = parser.parseSync(dxfContent);
                     renderDxf(dxfData);
@@ -366,7 +394,6 @@
         }
         loadDxfFromServer(DXF_FILE_PATH);
 
-        // Calcolo dello spessore dinamico in base allo zoom (Punto 4)
         function calculateDynamicWeight(zoom) {
             if (zoom <= 13) return 3.2;
             if (zoom <= 15) return 4.2;
@@ -379,39 +406,6 @@
             return '#' + ('000000' + v.toString(16)).slice(-6);
         }
 
-        const DASH_SCALE = 1.6;
-        const MIN_DASH_PX = 3;
-
-        function buildStyleResolvers(dxf) {
-            const layers = (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) || {};
-            const lineTypes = (dxf.tables && dxf.tables.lineType && dxf.tables.lineType.lineTypes) || {};
-
-            function resolveColor(entity) {
-                const own = colorIntToHex(entity.color);
-                if (own) return own;
-                const layerDef = layers[entity.layer];
-                if (layerDef) {
-                    const layerColor = colorIntToHex(layerDef.color);
-                    if (layerColor) return layerColor;
-                }
-                return '#3388ff';
-            }
-
-            function resolveDashArray(entity) {
-                let ltName = entity.lineType;
-                if (!ltName || /^by ?layer$/i.test(ltName)) {
-                    const layerDef = layers[entity.layer];
-                    ltName = (layerDef && layerDef.lineType) || 'Continuous';
-                }
-                const lt = lineTypes[ltName];
-                if (!lt || !lt.pattern || lt.pattern.length <= 1) return null;
-                const segments = lt.pattern.map(v => Math.max(MIN_DASH_PX, Math.round(Math.abs(v) * DASH_SCALE)));
-                return segments.join(',');
-            }
-
-            return { resolveColor, resolveDashArray };
-        }
-
         function renderDxf(dxf) {
             reteAereaGroup.clearLayers();
             divisoriGroup.clearLayers();
@@ -420,7 +414,28 @@
             dxfSearchInput.value = '';
             dxfSearchResults.style.display = 'none';
 
-            const { resolveColor, resolveDashArray } = buildStyleResolvers(dxf);
+            const layersTable = (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) || {};
+            const lineTypesTable = (dxf.tables && dxf.tables.lineType && dxf.tables.lineType.lineTypes) || {};
+
+            function resolveColor(entity) {
+                const own = colorIntToHex(entity.color);
+                if (own) return own;
+                const layerDef = layersTable[entity.layer];
+                if (layerDef) {
+                    const layerColor = colorIntToHex(layerDef.color);
+                    if (layerColor) return layerColor;
+                }
+                return '#3388ff';
+            }
+
+            function resolveLinetypeInfo(entity) {
+                let ltName = entity.lineType;
+                if (!ltName || /^by ?layer$/i.test(ltName)) {
+                    const layerDef = layersTable[entity.layer];
+                    ltName = (layerDef && layerDef.lineType) || 'Continuous';
+                }
+                return complexLinetypesMap[ltName] || { name: ltName, text: null, dashArray: null };
+            }
 
             const featureBounds = L.latLngBounds();
             const currentZoom = map.getZoom();
@@ -433,7 +448,7 @@
                         const isDivisoriLayer = /DIVISOR/i.test(layerName);
                         const targetGroup = isDivisoriLayer ? divisoriGroup : reteAereaGroup;
 
-                        // GEOMETRIA LINEARE (LINE / POLYLINE / LWPOLYLINE)
+                        // POLILINEE / LINEE
                         if (entity.type === 'LINE' || entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE') {
                             let coords = [];
                             if (entity.type === 'LINE') {
@@ -451,26 +466,41 @@
 
                             if (coords.length >= 2) {
                                 const latLngs = coords.map(c => [c[1], c[0]]);
+                                const color = resolveColor(entity);
+                                const ltInfo = resolveLinetypeInfo(entity);
+
                                 const polyline = L.polyline(latLngs, {
-                                    color: resolveColor(entity),
+                                    color: color,
                                     weight: baseWeight,
                                     opacity: 0.95,
-                                    dashArray: resolveDashArray(entity) || null,
+                                    dashArray: ltInfo.dashArray || null,
+                                    renderer: svgRenderer,
                                     interactive: true
                                 });
 
-                                // Identificazione Layer tramite Clic (Punto 5)
-                                polyline.bindPopup(`<b>Layer DXF:</b> ${layerName}`, {
-                                    autoPan: true,
-                                    closeButton: true
-                                });
+                                // APPLICA IL TESTO LUNGO LA TRACCIA (Se il tipo di linea contiene testo come "Zona 1")
+                                const textToDraw = ltInfo.text || (layerName.match(/Zona\s*\d+/i) ? layerName : null);
+                                if (textToDraw && polyline.setText) {
+                                    polyline.setText(textToDraw, {
+                                        repeat: true,
+                                        center: true,
+                                        offset: 6,
+                                        attributes: {
+                                            'fill': color,
+                                            'font-weight': 'bold',
+                                            'font-size': '11px',
+                                            'letter-spacing': '1px'
+                                        }
+                                    });
+                                }
 
+                                polyline.bindPopup(`<b>Layer DXF:</b> ${layerName}<br><b>Stile Linea:</b> ${ltInfo.name}${textToDraw ? ` ("${textToDraw}")` : ''}`);
                                 polyline.addTo(targetGroup);
                                 dxfPolylineLayers.push(polyline);
                                 featureBounds.extend(polyline.getBounds());
                             }
                         }
-                        // ETICHETTE E TESTI (TEXT / MTEXT)
+                        // ETICHETTE E TESTI PUNTUALI
                         else if (entity.type === 'TEXT' || entity.type === 'MTEXT') {
                             const pt = entity.startPoint || entity.position;
                             if (pt && entity.text) {
@@ -507,7 +537,6 @@
                 });
             }
 
-            // Abilita ricerca testi
             if (dxfTextItems.length > 0) {
                 dxfSearchInput.disabled = false;
                 dxfSearchInput.placeholder = `🔧 Cerca tra ${dxfTextItems.length} testi DXF...`;
@@ -517,26 +546,20 @@
                 map.fitBounds(featureBounds);
             }
 
-            // Aggiorna visibilità etichette e spessori al primo caricamento
             updateLabelAntiCollision();
         }
 
-        // ============================================================
-        // 4. ANTI-COLLISIONE DINAMICA ETICHETTE & SPESSORE IN FUNZIONE DELLO ZOOM (Punti 2, 4, 7)
-        // ============================================================
+        // ANTI-COLLISIONE ETICHETTE & SPESSORE DINAMICO
         function updateLabelAntiCollision() {
             const currentZoom = map.getZoom();
-
-            // A) Aggiorna lo spessore delle polilinee
             const newWeight = calculateDynamicWeight(currentZoom);
+            
             dxfPolylineLayers.forEach(poly => {
                 poly.setStyle({ weight: newWeight });
             });
 
-            // B) Gestione etichette sovrapposte
             if (!map.hasLayer(divisoriGroup)) return;
 
-            // A zoom molto ridotto (< 14) nascondi tutte le etichette per non appesantire
             if (currentZoom < 14) {
                 dxfTextItems.forEach(item => {
                     if (divisoriGroup.hasLayer(item.marker)) {
@@ -546,18 +569,14 @@
                 return;
             }
 
-            // Calcola la distanza minima in pixel in base allo zoom per evitare sovrapposizioni
             const visiblePositions = [];
             const minDistancePx = currentZoom < 16 ? 55 : 30;
 
             dxfTextItems.forEach(item => {
                 const point = map.latLngToContainerPoint(item.latlng);
-
                 let isOverlapping = false;
                 for (const pos of visiblePositions) {
-                    const dx = pos.x - point.x;
-                    const dy = pos.y - point.y;
-                    if (Math.hypot(dx, dy) < minDistancePx) {
+                    if (Math.hypot(pos.x - point.x, pos.y - point.y) < minDistancePx) {
                         isOverlapping = true;
                         break;
                     }
@@ -576,12 +595,9 @@
             });
         }
 
-        // Eventi mappa per aggiornamento continuo al variare dello zoom o spostamento
         map.on('zoomend moveend', updateLabelAntiCollision);
 
-        // ============================================================
-        // 5. RICERCA TOPONOMASTICA (Nominatim OSM)
-        // ============================================================
+        // RICERCA TOPONOMASTICA
         const addressSearchInput = document.getElementById('address-search-input');
         const addressSearchResults = document.getElementById('address-search-results');
         let addressSearchTimeout = null;
@@ -643,9 +659,7 @@
                 });
         }
 
-        // ============================================================
-        // 6. RICERCA TESTI DXF
-        // ============================================================
+        // RICERCA TESTI DXF
         const dxfSearchInput = document.getElementById('dxf-search-input');
         const dxfSearchResults = document.getElementById('dxf-search-results');
 
@@ -668,7 +682,6 @@
                     div.className = 'search-result-item';
                     div.innerHTML = `<strong>${item.text}</strong> <small>(Layer: ${item.layer})</small>`;
                     div.addEventListener('click', function () {
-                        // Assicurati che l'etichetta sia visibile nel gruppo
                         if (!divisoriGroup.hasLayer(item.marker)) {
                             divisoriGroup.addLayer(item.marker);
                         }
@@ -689,7 +702,6 @@
             dxfSearchResults.style.display = 'block';
         });
 
-        // Chiusura dei menu di ricerca al clic esterno
         document.addEventListener('click', function (e) {
             if (!e.target.closest('#address-search-input') && !e.target.closest('#address-search-results')) {
                 addressSearchResults.style.display = 'none';
