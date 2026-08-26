@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Rete Aerea Tranviaria di Torino — Visualizzatore GPS &amp; DXF</title>
 
     <!-- Leaflet CSS -->
@@ -12,49 +12,63 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css" />
 
     <style>
-        body, html {
+        * {
+            box-sizing: border-box;
+        }
+        html, body {
             margin: 0;
             padding: 0;
             height: 100%;
+            width: 100%;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
+
+        /* --------------------------------------------------
+           HEADER E RICERCA RESPONSIVA
+        -------------------------------------------------- */
         #header {
-            min-height: 60px;
+            flex: 0 0 auto;
             background-color: #2c3e50;
             color: white;
             display: flex;
             align-items: center;
-            padding: 8px 15px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            padding: 8px 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.25);
             z-index: 1000;
-            position: relative;
-            gap: 12px;
+            gap: 10px;
             flex-wrap: wrap;
         }
         #header h1 {
-            font-size: 1.05rem;
+            font-size: 1rem;
             margin: 0;
             white-space: nowrap;
+            flex: 0 0 auto;
         }
         .search-wrapper {
             position: relative;
-            display: flex;
-            align-items: center;
+            flex: 1 1 180px;
+            min-width: 130px;
         }
         .search-wrapper label {
             display: none;
         }
         .search-wrapper input[type="text"] {
-            padding: 7px 12px;
+            width: 100%;
+            padding: 6px 10px;
             border-radius: 4px;
             border: 1px solid #ccc;
             font-size: 0.85rem;
-            width: 190px;
             outline: none;
+            background-color: #fff;
+            color: #333;
         }
         .search-wrapper input[type="text"]:focus {
             border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52,152,219,0.5);
         }
         .search-wrapper input[type="text"]:disabled {
             background-color: #eee;
@@ -62,24 +76,24 @@
         }
         .search-results {
             position: absolute;
-            top: 40px;
+            top: 36px;
             left: 0;
             right: 0;
-            min-width: 260px;
             background: white;
             color: #333;
             border-radius: 4px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-            max-height: 280px;
+            max-height: 240px;
             overflow-y: auto;
             z-index: 2000;
             display: none;
         }
         .search-result-item {
-            padding: 8px 12px;
+            padding: 8px 10px;
             cursor: pointer;
             border-bottom: 1px solid #eee;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
+            line-height: 1.3;
         }
         .search-result-item:last-child {
             border-bottom: none;
@@ -94,22 +108,29 @@
         .search-result-item:hover small {
             color: #eaf4fc;
         }
-        #map {
-            height: calc(100vh - 60px);
-            width: 100%;
-            z-index: 1;
-        }
         #status {
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             color: #ecf0f1;
             white-space: nowrap;
             margin-left: auto;
+            flex: 0 0 auto;
         }
 
-        /* Stile testi del layer "Divisori": magenta, in rilievo, ben visibili */
+        /* --------------------------------------------------
+           MAPPA
+        -------------------------------------------------- */
+        #map {
+            flex: 1 1 auto;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* --------------------------------------------------
+           STILE TESTI E ETICHETTE DIVISORI
+        -------------------------------------------------- */
         .dxf-text-label {
             font-weight: 800;
-            font-size: 13px;
+            font-size: 12px;
             letter-spacing: 0.2px;
             white-space: nowrap;
             pointer-events: auto;
@@ -118,7 +139,6 @@
         .dxf-text-label span {
             display: inline-block;
         }
-        /* Effetto "in rilievo": alone bianco per leggibilità + ombra per dare profondità */
         .dxf-text-label .label-text {
             color: #ff00ff;
             text-shadow:
@@ -130,22 +150,91 @@
                 0px -1px 0 #fff,
                 1px 0px 0 #fff,
                 -1px 0px 0 #fff,
-                2px 2px 2px rgba(0,0,0,0.45);
+                2px 2px 3px rgba(0,0,0,0.5);
         }
-        /* Evidenziazione testo selezionato dalla ricerca */
         .dxf-text-label-highlight .label-text {
             color: #e74c3c !important;
-            font-size: 17px !important;
+            font-size: 16px !important;
             text-shadow:
                 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff,
-                0 0 6px #ffff00, 0 0 10px #ffff00 !important;
+                0 0 8px #ffff00, 0 0 12px #ffff00 !important;
         }
         .dxf-text-label-highlight {
             z-index: 1000 !important;
         }
 
-        .leaflet-popup-content b {
+        /* --------------------------------------------------
+           LEGENDA SULLA MAPPA (Basso a destra)
+        -------------------------------------------------- */
+        .map-legend {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(4px);
+            padding: 8px 12px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            font-size: 0.78rem;
             color: #2c3e50;
+            line-height: 1.5;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .map-legend-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 2px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 3px;
+        }
+        .legend-line {
+            display: inline-block;
+            width: 26px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        .legend-line.alimentata {
+            background-color: #2ecc71;
+        }
+        .legend-line.disalimentata {
+            background-color: #e74c3c;
+        }
+
+        /* --------------------------------------------------
+           ADATTAMENTO PER DISPOSITIVI MOBILI (< 600px)
+        -------------------------------------------------- */
+        @media (max-width: 600px) {
+            #header {
+                padding: 6px 8px;
+                gap: 6px;
+            }
+            #header h1 {
+                font-size: 0.9rem;
+                width: 100%;
+            }
+            .search-wrapper {
+                flex: 1 1 48%;
+                min-width: 0;
+            }
+            .search-wrapper input[type="text"] {
+                font-size: 0.78rem;
+                padding: 5px 8px;
+            }
+            #status {
+                width: 100%;
+                text-align: right;
+                font-size: 0.7rem;
+            }
+            .map-legend {
+                padding: 6px 10px;
+                font-size: 0.72rem;
+            }
+            .legend-line {
+                width: 20px;
+                height: 3px;
+            }
         }
     </style>
 </head>
@@ -154,17 +243,17 @@
     <div id="header">
         <h1>🚊 Rete Aerea Tranviaria — Torino</h1>
 
-        <!-- Ricerca toponomastica (indirizzi, vie, luoghi) -->
+        <!-- Ricerca toponomastica -->
         <div class="search-wrapper">
             <label for="address-search-input">Ricerca indirizzo</label>
-            <input type="text" id="address-search-input" placeholder="🔎 Cerca indirizzo, via, luogo..." autocomplete="off" />
+            <input type="text" id="address-search-input" placeholder="🔎 Indirizzo / via..." autocomplete="off" />
             <div id="address-search-results" class="search-results"></div>
         </div>
 
         <!-- Ricerca testi nel DXF -->
         <div class="search-wrapper">
             <label for="dxf-search-input">Ricerca testo DXF</label>
-            <input type="text" id="dxf-search-input" placeholder="🔧 Cerca testo/zona nel DXF..." autocomplete="off" disabled />
+            <input type="text" id="dxf-search-input" placeholder="🔧 Testo DXF..." autocomplete="off" disabled />
             <div id="dxf-search-results" class="search-results"></div>
         </div>
 
@@ -177,6 +266,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- Leaflet Locate Control JS -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
 
     <!-- Proj4JS per la trasformazione EPSG:3003 -->
@@ -187,40 +277,77 @@
 
     <script>
         // ============================================================
-        // INIZIALIZZAZIONE MAPPA (overlay su OpenStreetMap)
+        // 1. INIZIALIZZAZIONE MAPPA E RENDERER CANVAS (Per touch preciso su mobile)
         // ============================================================
-        const map = L.map('map').setView([45.0703, 7.6869], 13); // Centro su Torino
+        const canvasRenderer = L.canvas({ tolerance: 10 });
+
+        const map = L.map('map', {
+            renderer: canvasRenderer,
+            zoomSnap: 0.5
+        }).setView([45.0703, 7.6869], 13); // Centro su Torino
 
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // Gruppo che conterrà la rete aerea tranviaria (overlay attivabile/disattivabile)
-        const dxfLayerGroup = L.layerGroup().addTo(map);
+        // GRUPPI LAYER SEPARATI
+        const reteAereaGroup = L.layerGroup().addTo(map); // Layer Rete Aerea
+        const divisoriGroup = L.layerGroup().addTo(map);  // Layer Divisori ed Etichette
 
-        // Controllo GPS (Localizzazione)
+        // Controllo GPS
         L.control.locate({
             position: 'topleft',
             strings: { title: "Mostra la mia posizione" },
             locateOptions: { enableHighAccuracy: true }
         }).addTo(map);
 
-        // Definizione Proiezione EPSG:3003 (Monte Mario / Italy zone 1)
-        proj4.defs("EPSG:3003", "+proj=tmerc +lat_0=0 +lon_0=9 +k=0.9996 +x_0=1500000 +y_0=0 +ellps=intl +towgs84=-104.1,-49.1,-9.9,0.971,-2.917,0.714,-11.68 +units=m +no_defs");
-
-        let dxfTextItems = [];       // Archivio dei testi caricati, per la ricerca
-        let activeHighlightMarker = null;
-        let addressMarker = null;    // Marker per la ricerca toponomastica
+        // Controllo Layer (Gestione Visibilità)
+        L.control.layers(
+            { "OpenStreetMap": osmLayer },
+            { 
+                "⚡ Rete Aerea": reteAereaGroup,
+                "✂️ Divisori & Etichette": divisoriGroup
+            },
+            { collapsed: true, position: 'topright' }
+        ).addTo(map);
 
         // ============================================================
-        // CARICAMENTO AUTOMATICO DEL DXF (nessun upload manuale)
+        // 2. LEGENDA IN BASSO A DESTRA (Punto 9)
+        // ============================================================
+        const legendControl = L.control({ position: 'bottomright' });
+        legendControl.onAdd = function () {
+            const div = L.DomUtil.create('div', 'map-legend');
+            div.innerHTML = `
+                <div class="map-legend-title">Legenda Stato Rete</div>
+                <div class="legend-item">
+                    <span class="legend-line alimentata"></span>
+                    <span>Alimentata</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line disalimentata"></span>
+                    <span>Disalimentata</span>
+                </div>
+            `;
+            return div;
+        };
+        legendControl.addTo(map);
+
+        // Definizione Proiezione EPSG:3003
+        proj4.defs("EPSG:3003", "+proj=tmerc +lat_0=0 +lon_0=9 +k=0.9996 +x_0=1500000 +y_0=0 +ellps=intl +towgs84=-104.1,-49.1,-9.9,0.971,-2.917,0.714,-11.68 +units=m +no_defs");
+
+        let dxfTextItems = [];          // Archivio etichette
+        let dxfPolylineLayers = [];     // Archivio polilinee per aggiornamento spessore dinamico
+        let addressMarker = null;
+
+        // ============================================================
+        // 3. CARICAMENTO E RENDERING DEL DXF
         // ============================================================
         const DXF_FILE_PATH = 'ReteAerea.dxf';
         const statusEl = document.getElementById('status');
 
         function loadDxfFromServer(path) {
-            statusEl.innerText = "Caricamento rete aerea in corso...";
+            statusEl.innerText = "Caricamento rete aerea...";
             fetch(path)
                 .then(response => {
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -234,24 +361,24 @@
                 })
                 .catch(err => {
                     console.error(err);
-                    statusEl.innerText = "Errore nel caricamento del DXF.";
-                    alert(`Impossibile caricare "${path}". Verifica che il file sia presente nella stessa cartella di index.html nel repository.`);
+                    statusEl.innerText = "Errore caricamento DXF.";
                 });
         }
         loadDxfFromServer(DXF_FILE_PATH);
 
-        // ============================================================
-        // UTILITY: colore e stile linea a partire dai dati DXF reali
-        // ============================================================
+        // Calcolo dello spessore dinamico in base allo zoom (Punto 4)
+        function calculateDynamicWeight(zoom) {
+            if (zoom <= 13) return 3.2;
+            if (zoom <= 15) return 4.2;
+            if (zoom <= 17) return 5.2;
+            return 6.5;
+        }
 
-        // Converte un colore "truecolor" decimale (fornito da dxf-parser) in stringa esadecimale
         function colorIntToHex(v) {
             if (typeof v !== 'number' || isNaN(v) || v < 0) return null;
             return '#' + ('000000' + v.toString(16)).slice(-6);
         }
 
-        // Fattore di scala (in pixel) per convertire le lunghezze reali del pattern
-        // del tipo di linea DXF in un dashArray leggibile sulla mappa web.
         const DASH_SCALE = 1.6;
         const MIN_DASH_PX = 3;
 
@@ -267,7 +394,7 @@
                     const layerColor = colorIntToHex(layerDef.color);
                     if (layerColor) return layerColor;
                 }
-                return '#3388ff'; // fallback (default Leaflet) se non risolvibile
+                return '#3388ff';
             }
 
             function resolveDashArray(entity) {
@@ -277,7 +404,7 @@
                     ltName = (layerDef && layerDef.lineType) || 'Continuous';
                 }
                 const lt = lineTypes[ltName];
-                if (!lt || !lt.pattern || lt.pattern.length <= 1) return null; // linea continua
+                if (!lt || !lt.pattern || lt.pattern.length <= 1) return null;
                 const segments = lt.pattern.map(v => Math.max(MIN_DASH_PX, Math.round(Math.abs(v) * DASH_SCALE)));
                 return segments.join(',');
             }
@@ -285,184 +412,175 @@
             return { resolveColor, resolveDashArray };
         }
 
-        // ============================================================
-        // RENDERING DEL DXF SULLA MAPPA
-        // ============================================================
         function renderDxf(dxf) {
-            dxfLayerGroup.clearLayers();
+            reteAereaGroup.clearLayers();
+            divisoriGroup.clearLayers();
             dxfTextItems = [];
+            dxfPolylineLayers = [];
             dxfSearchInput.value = '';
             dxfSearchResults.style.display = 'none';
 
             const { resolveColor, resolveDashArray } = buildStyleResolvers(dxf);
 
-            const geojson = { type: 'FeatureCollection', features: [] };
+            const featureBounds = L.latLngBounds();
+            const currentZoom = map.getZoom();
+            const baseWeight = calculateDynamicWeight(currentZoom);
 
             if (dxf.entities && dxf.entities.length > 0) {
                 dxf.entities.forEach(entity => {
                     try {
-                        if (entity.type === 'LINE') {
-                            let pt1, pt2;
-                            if (entity.vertices && entity.vertices.length >= 2) {
-                                pt1 = entity.vertices[0];
-                                pt2 = entity.vertices[1];
-                            } else if (entity.startPoint && entity.endPoint) {
-                                pt1 = entity.startPoint;
-                                pt2 = entity.endPoint;
-                            }
-                            if (pt1 && pt2) {
-                                const p1 = proj4("EPSG:3003", "EPSG:4326", [pt1.x, pt1.y]);
-                                const p2 = proj4("EPSG:3003", "EPSG:4326", [pt2.x, pt2.y]);
-                                geojson.features.push({
-                                    type: 'Feature',
-                                    geometry: { type: 'LineString', coordinates: [p1, p2] },
-                                    properties: {
-                                        layer: entity.layer,
-                                        color: resolveColor(entity),
-                                        dash: resolveDashArray(entity)
-                                    }
-                                });
-                            }
-                        } else if (entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE') {
-                            if (entity.vertices && entity.vertices.length > 0) {
-                                let coords = entity.vertices.map(v => proj4("EPSG:3003", "EPSG:4326", [v.x, v.y]));
-                                if (entity.shape || (coords[0][0] === coords[coords.length-1][0] && coords[0][1] === coords[coords.length-1][1])) {
-                                    if (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1]) {
-                                        coords.push(coords[0]);
-                                    }
+                        const layerName = entity.layer || 'Default';
+                        const isDivisoriLayer = /DIVISOR/i.test(layerName);
+                        const targetGroup = isDivisoriLayer ? divisoriGroup : reteAereaGroup;
+
+                        // GEOMETRIA LINEARE (LINE / POLYLINE / LWPOLYLINE)
+                        if (entity.type === 'LINE' || entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE') {
+                            let coords = [];
+                            if (entity.type === 'LINE') {
+                                let pt1 = entity.vertices ? entity.vertices[0] : entity.startPoint;
+                                let pt2 = entity.vertices ? entity.vertices[1] : entity.endPoint;
+                                if (pt1 && pt2) {
+                                    coords = [
+                                        proj4("EPSG:3003", "EPSG:4326", [pt1.x, pt1.y]),
+                                        proj4("EPSG:3003", "EPSG:4326", [pt2.x, pt2.y])
+                                    ];
                                 }
-                                geojson.features.push({
-                                    type: 'Feature',
-                                    geometry: { type: 'LineString', coordinates: coords },
-                                    properties: {
-                                        layer: entity.layer,
-                                        color: resolveColor(entity),
-                                        dash: resolveDashArray(entity)
-                                    }
-                                });
+                            } else if (entity.vertices && entity.vertices.length > 0) {
+                                coords = entity.vertices.map(v => proj4("EPSG:3003", "EPSG:4326", [v.x, v.y]));
                             }
-                        } else if (entity.type === 'POINT') {
-                            const p = proj4("EPSG:3003", "EPSG:4326", [entity.position.x, entity.position.y]);
-                            geojson.features.push({
-                                type: 'Feature',
-                                geometry: { type: 'Point', coordinates: p },
-                                properties: { layer: entity.layer, color: resolveColor(entity) }
-                            });
-                        } else if (entity.type === 'CIRCLE' || entity.type === 'ARC') {
-                            if (entity.center) {
-                                const p = proj4("EPSG:3003", "EPSG:4326", [entity.center.x, entity.center.y]);
-                                geojson.features.push({
-                                    type: 'Feature',
-                                    geometry: { type: 'Point', coordinates: p },
-                                    properties: { layer: entity.layer, note: 'Centro Cerchio/Arco', color: resolveColor(entity) }
+
+                            if (coords.length >= 2) {
+                                const latLngs = coords.map(c => [c[1], c[0]]);
+                                const polyline = L.polyline(latLngs, {
+                                    color: resolveColor(entity),
+                                    weight: baseWeight,
+                                    opacity: 0.95,
+                                    dashArray: resolveDashArray(entity) || null,
+                                    interactive: true
                                 });
+
+                                // Identificazione Layer tramite Clic (Punto 5)
+                                polyline.bindPopup(`<b>Layer DXF:</b> ${layerName}`, {
+                                    autoPan: true,
+                                    closeButton: true
+                                });
+
+                                polyline.addTo(targetGroup);
+                                dxfPolylineLayers.push(polyline);
+                                featureBounds.extend(polyline.getBounds());
                             }
-                        } else if (entity.type === 'TEXT' || entity.type === 'MTEXT') {
+                        }
+                        // ETICHETTE E TESTI (TEXT / MTEXT)
+                        else if (entity.type === 'TEXT' || entity.type === 'MTEXT') {
                             const pt = entity.startPoint || entity.position;
                             if (pt && entity.text) {
-                                const p = proj4("EPSG:3003", "EPSG:4326", [pt.x, pt.y]);
+                                const coord = proj4("EPSG:3003", "EPSG:4326", [pt.x, pt.y]);
+                                const latlng = L.latLng(coord[1], coord[0]);
                                 const rotationDeg = entity.rotation || 0;
-                                geojson.features.push({
-                                    type: 'Feature',
-                                    geometry: { type: 'Point', coordinates: p },
-                                    properties: {
-                                        layer: entity.layer,
-                                        isText: true,
-                                        text: entity.text.trim(),
-                                        rotation: rotationDeg,
-                                        color: resolveColor(entity)
-                                    }
+                                const screenRotationDeg = -rotationDeg;
+                                const color = resolveColor(entity) || '#ff00ff';
+
+                                const marker = L.marker(latlng, {
+                                    icon: L.divIcon({
+                                        className: 'dxf-text-label',
+                                        html: `<span style="display:inline-block; transform: rotate(${screenRotationDeg}deg); transform-origin: left center;"><span class="label-text" style="color:${color};">${entity.text.trim()}</span></span>`,
+                                        iconSize: null,
+                                        iconAnchor: [0, 0]
+                                    })
                                 });
+
+                                marker.bindPopup(`<b>Testo:</b> ${entity.text.trim()}<br><b>Layer DXF:</b> ${layerName}`);
+
+                                dxfTextItems.push({
+                                    text: entity.text.trim(),
+                                    layer: layerName,
+                                    latlng: latlng,
+                                    marker: marker
+                                });
+
+                                featureBounds.extend(latlng);
                             }
                         }
                     } catch (e) {
-                        console.warn("Errore conversione entità:", entity, e);
+                        console.warn("Errore parsing entità DXF:", entity, e);
                     }
                 });
             }
 
-            if (geojson.features.length === 0) {
-                alert("Nessuna geometria compatibile trovata nel DXF.");
-                return;
-            }
-
-            const dxfGeoLayer = L.geoJSON(geojson, {
-                // Colore e tratteggio delle polilinee: fedeli al file DXF originale
-                style: function (feature) {
-                    return {
-                        color: feature.properties.color,
-                        weight: 2.4,
-                        opacity: 0.95,
-                        dashArray: feature.properties.dash || null
-                    };
-                },
-                pointToLayer: function (feature, latlng) {
-                    if (feature.properties && feature.properties.isText) {
-                        // Il DXF misura la rotazione in senso antiorario con l'asse Y verso l'alto;
-                        // sullo schermo l'asse Y cresce verso il basso, quindi invertiamo il segno.
-                        const rotationDeg = feature.properties.rotation || 0;
-                        const screenRotationDeg = -rotationDeg;
-                        const color = feature.properties.color || '#ff00ff';
-
-                        const marker = L.marker(latlng, {
-                            icon: L.divIcon({
-                                className: 'dxf-text-label',
-                                html: `<span style="display:inline-block; transform: rotate(${screenRotationDeg}deg); transform-origin: left center;"><span class="label-text" style="color:${color}; text-shadow-color:${color};">${feature.properties.text}</span></span>`,
-                                iconSize: null,
-                                iconAnchor: [0, 0]
-                            })
-                        });
-
-                        dxfTextItems.push({
-                            text: feature.properties.text,
-                            layer: feature.properties.layer,
-                            latlng: latlng,
-                            marker: marker
-                        });
-
-                        marker.bindPopup(`<b>Testo:</b> ${feature.properties.text}<br><b>Layer:</b> ${feature.properties.layer}`);
-                        return marker;
-                    }
-
-                    const color = feature.properties.color || '#e74c3c';
-                    return L.circleMarker(latlng, {
-                        radius: 4,
-                        fillColor: color,
-                        color: color,
-                        weight: 1,
-                        opacity: 1,
-                        fillOpacity: 0.8
-                    });
-                }
-            });
-
-            dxfGeoLayer.addTo(dxfLayerGroup);
-
-            // Abilita la barra di ricerca testi DXF
+            // Abilita ricerca testi
             if (dxfTextItems.length > 0) {
                 dxfSearchInput.disabled = false;
                 dxfSearchInput.placeholder = `🔧 Cerca tra ${dxfTextItems.length} testi DXF...`;
-            } else {
-                dxfSearchInput.disabled = true;
-                dxfSearchInput.placeholder = "Nessun testo trovato nel DXF";
             }
 
-            // Aggiunge il controllo layer (OSM + Rete aerea) solo una volta
-            if (!window.__layerControlAdded) {
-                L.control.layers(
-                    { "OpenStreetMap": osmLayer },
-                    { "Rete Aerea Tranviaria (DXF)": dxfLayerGroup },
-                    { collapsed: true, position: 'topright' }
-                ).addTo(map);
-                window.__layerControlAdded = true;
+            if (featureBounds.isValid()) {
+                map.fitBounds(featureBounds);
             }
 
-            // Centra la mappa sulle geometrie caricate
-            map.fitBounds(dxfGeoLayer.getBounds());
+            // Aggiorna visibilità etichette e spessori al primo caricamento
+            updateLabelAntiCollision();
         }
 
         // ============================================================
-        // RICERCA TOPONOMASTICA (indirizzi, vie, luoghi) via Nominatim/OSM
+        // 4. ANTI-COLLISIONE DINAMICA ETICHETTE & SPESSORE IN FUNZIONE DELLO ZOOM (Punti 2, 4, 7)
+        // ============================================================
+        function updateLabelAntiCollision() {
+            const currentZoom = map.getZoom();
+
+            // A) Aggiorna lo spessore delle polilinee
+            const newWeight = calculateDynamicWeight(currentZoom);
+            dxfPolylineLayers.forEach(poly => {
+                poly.setStyle({ weight: newWeight });
+            });
+
+            // B) Gestione etichette sovrapposte
+            if (!map.hasLayer(divisoriGroup)) return;
+
+            // A zoom molto ridotto (< 14) nascondi tutte le etichette per non appesantire
+            if (currentZoom < 14) {
+                dxfTextItems.forEach(item => {
+                    if (divisoriGroup.hasLayer(item.marker)) {
+                        divisoriGroup.removeLayer(item.marker);
+                    }
+                });
+                return;
+            }
+
+            // Calcola la distanza minima in pixel in base allo zoom per evitare sovrapposizioni
+            const visiblePositions = [];
+            const minDistancePx = currentZoom < 16 ? 55 : 30;
+
+            dxfTextItems.forEach(item => {
+                const point = map.latLngToContainerPoint(item.latlng);
+
+                let isOverlapping = false;
+                for (const pos of visiblePositions) {
+                    const dx = pos.x - point.x;
+                    const dy = pos.y - point.y;
+                    if (Math.hypot(dx, dy) < minDistancePx) {
+                        isOverlapping = true;
+                        break;
+                    }
+                }
+
+                if (!isOverlapping) {
+                    visiblePositions.push(point);
+                    if (!divisoriGroup.hasLayer(item.marker)) {
+                        divisoriGroup.addLayer(item.marker);
+                    }
+                } else {
+                    if (divisoriGroup.hasLayer(item.marker)) {
+                        divisoriGroup.removeLayer(item.marker);
+                    }
+                }
+            });
+        }
+
+        // Eventi mappa per aggiornamento continuo al variare dello zoom o spostamento
+        map.on('zoomend moveend', updateLabelAntiCollision);
+
+        // ============================================================
+        // 5. RICERCA TOPONOMASTICA (Nominatim OSM)
         // ============================================================
         const addressSearchInput = document.getElementById('address-search-input');
         const addressSearchResults = document.getElementById('address-search-results');
@@ -479,10 +597,9 @@
                 return;
             }
 
-            // Debounce per rispettare le policy di utilizzo di Nominatim
             addressSearchTimeout = setTimeout(() => {
                 searchAddress(query);
-            }, 450);
+            }, 400);
         });
 
         function searchAddress(query) {
@@ -492,8 +609,7 @@
             addressSearchResults.innerHTML = '<div class="search-result-item">Ricerca in corso...</div>';
             addressSearchResults.style.display = 'block';
 
-            // Ricerca con priorità sull'area di Torino (viewbox), senza escludere il resto d'Italia
-            const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8` +
+            const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6` +
                 `&viewbox=7.55,45.15,7.75,45.00&bounded=0&countrycodes=it&q=${encodeURIComponent(query)}`;
 
             fetch(url, { signal: addressSearchAbortController.signal, headers: { 'Accept-Language': 'it' } })
@@ -509,7 +625,12 @@
                         div.className = 'search-result-item';
                         div.innerHTML = `<strong>${item.display_name.split(',')[0]}</strong><br><small>${item.display_name}</small>`;
                         div.addEventListener('click', function () {
-                            zoomToAddress(item);
+                            const lat = parseFloat(item.lat);
+                            const lon = parseFloat(item.lon);
+                            if (addressMarker) map.removeLayer(addressMarker);
+                            addressMarker = L.marker([lat, lon]).addTo(map);
+                            addressMarker.bindPopup(`<b>${item.display_name}</b>`).openPopup();
+                            map.flyTo([lat, lon], 17, { duration: 1.2 });
                             addressSearchResults.style.display = 'none';
                         });
                         addressSearchResults.appendChild(div);
@@ -518,31 +639,12 @@
                 })
                 .catch(err => {
                     if (err.name === 'AbortError') return;
-                    console.error(err);
                     addressSearchResults.innerHTML = '<div class="search-result-item">Errore nella ricerca</div>';
                 });
         }
 
-        function zoomToAddress(item) {
-            const lat = parseFloat(item.lat);
-            const lon = parseFloat(item.lon);
-
-            if (addressMarker) map.removeLayer(addressMarker);
-            addressMarker = L.marker([lat, lon]).addTo(map);
-            addressMarker.bindPopup(`<b>${item.display_name}</b>`).openPopup();
-
-            map.flyTo([lat, lon], 17, { duration: 1.2 });
-        }
-
-        // Nascondi risultati toponomastici cliccando altrove
-        document.addEventListener('click', function (e) {
-            if (!e.target.closest('#address-search-input') && !e.target.closest('#address-search-results')) {
-                addressSearchResults.style.display = 'none';
-            }
-        });
-
         // ============================================================
-        // RICERCA TESTI NEL DXF (etichette Divisori / Zone)
+        // 6. RICERCA TESTI DXF
         // ============================================================
         const dxfSearchInput = document.getElementById('dxf-search-input');
         const dxfSearchResults = document.getElementById('dxf-search-results');
@@ -561,12 +663,23 @@
             if (filtered.length === 0) {
                 dxfSearchResults.innerHTML = '<div class="search-result-item">Nessun risultato trovato</div>';
             } else {
-                filtered.slice(0, 50).forEach(item => {
+                filtered.slice(0, 40).forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'search-result-item';
                     div.innerHTML = `<strong>${item.text}</strong> <small>(Layer: ${item.layer})</small>`;
                     div.addEventListener('click', function () {
-                        zoomToText(item);
+                        // Assicurati che l'etichetta sia visibile nel gruppo
+                        if (!divisoriGroup.hasLayer(item.marker)) {
+                            divisoriGroup.addLayer(item.marker);
+                        }
+                        map.flyTo(item.latlng, 18, { duration: 1.2 });
+                        item.marker.openPopup();
+
+                        const iconElem = item.marker.getElement();
+                        if (iconElem) {
+                            iconElem.classList.add('dxf-text-label-highlight');
+                            setTimeout(() => iconElem.classList.remove('dxf-text-label-highlight'), 3000);
+                        }
                         dxfSearchResults.style.display = 'none';
                     });
                     dxfSearchResults.appendChild(div);
@@ -576,26 +689,15 @@
             dxfSearchResults.style.display = 'block';
         });
 
-        // Nascondi lista risultati DXF cliccando altrove
+        // Chiusura dei menu di ricerca al clic esterno
         document.addEventListener('click', function (e) {
+            if (!e.target.closest('#address-search-input') && !e.target.closest('#address-search-results')) {
+                addressSearchResults.style.display = 'none';
+            }
             if (!e.target.closest('#dxf-search-input') && !e.target.closest('#dxf-search-results')) {
                 dxfSearchResults.style.display = 'none';
             }
         });
-
-        // Funzione per volare sul testo cercato ed evidenziarlo
-        function zoomToText(item) {
-            map.flyTo(item.latlng, 18, { duration: 1.2 });
-            item.marker.openPopup();
-
-            const iconElem = item.marker.getElement();
-            if (iconElem) {
-                iconElem.classList.add('dxf-text-label-highlight');
-                setTimeout(() => {
-                    iconElem.classList.remove('dxf-text-label-highlight');
-                }, 3000);
-            }
-        }
     </script>
 </body>
 </html>
