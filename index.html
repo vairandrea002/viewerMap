@@ -201,6 +201,110 @@
         .legend-line.disalimentata {
             background-color: #e74c3c;
         }
+        .legend-ground-symbol {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 20px;
+        }
+        .legend-ground-symbol svg {
+            width: 20px;
+            height: 20px;
+            display: block;
+        }
+
+        /* --------------------------------------------------
+           SIMBOLO MESSA A TERRA SULLA MAPPA
+        -------------------------------------------------- */
+        .ground-symbol-icon {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        .ground-symbol-icon svg {
+            filter: drop-shadow(0 0 1.5px #000) drop-shadow(0 0 1.5px #000);
+        }
+
+        /* --------------------------------------------------
+           PULSANTE HEADER "TABELLA ZONE"
+        -------------------------------------------------- */
+        .header-btn {
+            flex: 0 0 auto;
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color 0.15s ease;
+        }
+        .header-btn:hover {
+            background-color: #2980b9;
+        }
+        .header-btn:active {
+            background-color: #1f6690;
+        }
+
+        /* --------------------------------------------------
+           MODALE POPUP "TABELLA ZONE"
+        -------------------------------------------------- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.78);
+            z-index: 5000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-content {
+            position: relative;
+            max-width: 95vw;
+            max-height: 92vh;
+            background: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            display: flex;
+        }
+        .modal-content img {
+            display: block;
+            max-width: 100%;
+            max-height: 88vh;
+            width: auto;
+            height: auto;
+            border-radius: 4px;
+        }
+        .modal-close-btn {
+            position: absolute;
+            top: -14px;
+            right: -14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #e74c3c;
+            color: #fff;
+            border: 2px solid #fff;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+        .modal-close-btn:hover {
+            background: #c0392b;
+        }
 
         /* --------------------------------------------------
            ADATTAMENTO PER DISPOSITIVI MOBILI (< 600px)
@@ -235,6 +339,28 @@
                 width: 20px;
                 height: 3px;
             }
+            .legend-ground-symbol {
+                width: 20px;
+                height: 16px;
+            }
+            .legend-ground-symbol svg {
+                width: 16px;
+                height: 16px;
+            }
+            .header-btn {
+                font-size: 0.75rem;
+                padding: 5px 8px;
+            }
+            .modal-content {
+                padding: 8px;
+            }
+            .modal-close-btn {
+                top: -10px;
+                right: -10px;
+                width: 28px;
+                height: 28px;
+                font-size: 18px;
+            }
         }
     </style>
 </head>
@@ -257,10 +383,20 @@
             <div id="dxf-search-results" class="search-results"></div>
         </div>
 
+        <button type="button" id="btn-tabella-zone" class="header-btn">📊 Tabella Zone</button>
+
         <span id="status">Caricamento in corso...</span>
     </div>
 
     <div id="map"></div>
+
+    <!-- Popup Tabella Zone -->
+    <div id="tabella-zone-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button type="button" id="tabella-zone-close" class="modal-close-btn" aria-label="Chiudi">&times;</button>
+            <img src="TabellaZone.jpg" alt="Tabella Zone" />
+        </div>
+    </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -294,6 +430,7 @@
         // GRUPPI LAYER SEPARATI
         const reteAereaGroup = L.layerGroup().addTo(map); // Layer Rete Aerea
         const divisoriGroup = L.layerGroup().addTo(map);  // Layer Divisori ed Etichette
+        const terraGroup = L.layerGroup().addTo(map);     // Layer Messa a Terra
 
         // Controllo GPS
         L.control.locate({
@@ -307,10 +444,22 @@
             { "OpenStreetMap": osmLayer },
             { 
                 "⚡ Rete Aerea": reteAereaGroup,
-                "✂️ Divisori & Etichette": divisoriGroup
+                "✂️ Divisori & Etichette": divisoriGroup,
+                "🟡 Terra": terraGroup
             },
             { collapsed: true, position: 'topright' }
         ).addTo(map);
+
+        // ============================================================
+        // 1bis. SIMBOLO GRAFICO "MESSA A TERRA" (usato in legenda e su mappa)
+        // ============================================================
+        const GROUND_SYMBOL_SVG = `
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <line x1="12" y1="2" x2="12" y2="12" stroke="#FFD500" stroke-width="2.4" stroke-linecap="round"/>
+                <line x1="5" y1="12" x2="19" y2="12" stroke="#FFD500" stroke-width="2.4" stroke-linecap="round"/>
+                <line x1="8" y1="16" x2="16" y2="16" stroke="#FFD500" stroke-width="2.4" stroke-linecap="round"/>
+                <line x1="10.5" y1="20" x2="13.5" y2="20" stroke="#FFD500" stroke-width="2.4" stroke-linecap="round"/>
+            </svg>`;
 
         // ============================================================
         // 2. LEGENDA IN BASSO A DESTRA (Punto 9)
@@ -328,6 +477,10 @@
                     <span class="legend-line disalimentata"></span>
                     <span>Disalimentata</span>
                 </div>
+                <div class="legend-item">
+                    <span class="legend-ground-symbol">${GROUND_SYMBOL_SVG}</span>
+                    <span>Messa a terra</span>
+                </div>
             `;
             return div;
         };
@@ -338,7 +491,9 @@
 
         let dxfTextItems = [];          // Archivio etichette
         let dxfPolylineLayers = [];     // Archivio polilinee per aggiornamento spessore dinamico
+        let terraItems = [];            // Archivio simboli messa a terra
         let addressMarker = null;
+        let suppressPingRemoval = false; // Evita la rimozione del ping durante lo spostamento programmato (flyTo)
 
         // ============================================================
         // 3. CARICAMENTO E RENDERING DEL DXF
@@ -412,11 +567,22 @@
             return { resolveColor, resolveDashArray };
         }
 
+        // Estrae un punto rappresentativo da un'entità DXF (per i simboli di messa a terra)
+        function extractEntityPoint(entity) {
+            if (entity.position) return entity.position;
+            if (entity.center) return entity.center;
+            if (entity.startPoint) return entity.startPoint;
+            if (entity.vertices && entity.vertices.length > 0) return entity.vertices[0];
+            return null;
+        }
+
         function renderDxf(dxf) {
             reteAereaGroup.clearLayers();
             divisoriGroup.clearLayers();
+            terraGroup.clearLayers();
             dxfTextItems = [];
             dxfPolylineLayers = [];
+            terraItems = [];
             dxfSearchInput.value = '';
             dxfSearchResults.style.display = 'none';
 
@@ -431,7 +597,32 @@
                     try {
                         const layerName = entity.layer || 'Default';
                         const isDivisoriLayer = /DIVISOR/i.test(layerName);
+                        const isTerraLayer = /TERRA/i.test(layerName);
                         const targetGroup = isDivisoriLayer ? divisoriGroup : reteAereaGroup;
+
+                        // SIMBOLO MESSA A TERRA (layer dedicato "Terra")
+                        if (isTerraLayer) {
+                            const pt = extractEntityPoint(entity);
+                            if (pt) {
+                                const coord = proj4("EPSG:3003", "EPSG:4326", [pt.x, pt.y]);
+                                const latlng = L.latLng(coord[1], coord[0]);
+
+                                const marker = L.marker(latlng, {
+                                    icon: L.divIcon({
+                                        className: 'ground-symbol-icon',
+                                        html: GROUND_SYMBOL_SVG,
+                                        iconSize: [24, 24],
+                                        iconAnchor: [12, 2]
+                                    })
+                                });
+                                marker.bindPopup(`<b>Messa a terra</b><br><b>Layer DXF:</b> ${layerName}`);
+                                marker.addTo(terraGroup);
+
+                                terraItems.push({ latlng: latlng, marker: marker });
+                                featureBounds.extend(latlng);
+                            }
+                            return; // Entità già gestita, non processarla oltre
+                        }
 
                         // GEOMETRIA LINEARE (LINE / POLYLINE / LWPOLYLINE)
                         if (entity.type === 'LINE' || entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE') {
@@ -533,7 +724,24 @@
                 poly.setStyle({ weight: newWeight });
             });
 
-            // B) Gestione etichette sovrapposte
+            // B) Gestione visibilità layer Terra (trattato come i Divisori: nascosto a zoom minimo)
+            if (map.hasLayer(terraGroup)) {
+                if (currentZoom < 14) {
+                    terraItems.forEach(item => {
+                        if (terraGroup.hasLayer(item.marker)) {
+                            terraGroup.removeLayer(item.marker);
+                        }
+                    });
+                } else {
+                    terraItems.forEach(item => {
+                        if (!terraGroup.hasLayer(item.marker)) {
+                            terraGroup.addLayer(item.marker);
+                        }
+                    });
+                }
+            }
+
+            // C) Gestione etichette sovrapposte
             if (!map.hasLayer(divisoriGroup)) return;
 
             // A zoom molto ridotto (< 14) nascondi tutte le etichette per non appesantire
@@ -587,6 +795,17 @@
         let addressSearchTimeout = null;
         let addressSearchAbortController = null;
 
+        // Il ping (marker) dell'indirizzo cercato deve sparire non appena l'utente
+        // si sposta sulla mappa. Lo spostamento programmato (flyTo verso il risultato
+        // appena trovato) viene invece ignorato grazie al flag suppressPingRemoval.
+        map.on('movestart', function () {
+            if (suppressPingRemoval) return;
+            if (addressMarker) {
+                map.removeLayer(addressMarker);
+                addressMarker = null;
+            }
+        });
+
         addressSearchInput.addEventListener('input', function () {
             const query = this.value.trim();
             clearTimeout(addressSearchTimeout);
@@ -628,9 +847,13 @@
                             const lat = parseFloat(item.lat);
                             const lon = parseFloat(item.lon);
                             if (addressMarker) map.removeLayer(addressMarker);
+
+                            suppressPingRemoval = true;
                             addressMarker = L.marker([lat, lon]).addTo(map);
                             addressMarker.bindPopup(`<b>${item.display_name}</b>`).openPopup();
                             map.flyTo([lat, lon], 17, { duration: 1.2 });
+                            map.once('moveend', () => { suppressPingRemoval = false; });
+
                             addressSearchResults.style.display = 'none';
                         });
                         addressSearchResults.appendChild(div);
@@ -687,6 +910,33 @@
             }
 
             dxfSearchResults.style.display = 'block';
+        });
+
+        // ============================================================
+        // 7. POPUP "TABELLA ZONE"
+        // ============================================================
+        const tabellaZoneBtn = document.getElementById('btn-tabella-zone');
+        const tabellaZoneModal = document.getElementById('tabella-zone-modal');
+        const tabellaZoneCloseBtn = document.getElementById('tabella-zone-close');
+
+        function openTabellaZoneModal() {
+            tabellaZoneModal.classList.add('active');
+        }
+        function closeTabellaZoneModal() {
+            tabellaZoneModal.classList.remove('active');
+        }
+
+        tabellaZoneBtn.addEventListener('click', openTabellaZoneModal);
+        tabellaZoneCloseBtn.addEventListener('click', closeTabellaZoneModal);
+
+        // Chiude il popup cliccando sullo sfondo scuro (fuori dall'immagine)
+        tabellaZoneModal.addEventListener('click', function (e) {
+            if (e.target === tabellaZoneModal) closeTabellaZoneModal();
+        });
+
+        // Chiude il popup con il tasto Esc
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeTabellaZoneModal();
         });
 
         // Chiusura dei menu di ricerca al clic esterno
